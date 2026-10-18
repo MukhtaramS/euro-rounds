@@ -1,0 +1,1212 @@
+{
+  "name": "Euro Rounds – Daily",
+  "nodes": [
+    {
+      "id": "fe6d2f47-ffc6-4a17-986a-3f110c633872",
+      "name": "Daily 08:00 Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        528
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6c9d8f8e-2505-4ed6-a9cd-cdb598df22b0",
+      "name": "Get Covered Companies",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        624
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "L2amme1njTzVq6QZ",
+          "cachedResultName": "euro_rounds_seen"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "date_added",
+              "condition": "gte",
+              "keyValue": "={{ $now.minus(30, 'days').toISO() }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a03c7658-2094-484a-8a33-b77cef8ec523",
+      "name": "Claude: Research",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        448,
+        624
+      ],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "claude-sonnet-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=You are a research analyst covering the European startup ecosystem. Today is {{ $now.setZone(\"Europe/Berlin\").toFormat(\"yyyy-MM-dd\") }}.\nFind startup funding rounds announced in Europe in the last 48 hours.\nSearch tech news sites, startup blogs and newsletters (e.g. Tech.eu, EU-Startups, Sifted, TechCrunch Europe, national startup news sites). Run several different searches by country (Germany, France, UK, Nordics, Netherlands, Spain, others) and by stage (seed, Series A, Series B and later).\nSkip these companies, already covered: {{ $(\"Get Covered Companies\").all().map(i => i.json.company).filter(Boolean).join(\", \") || \"none\" }}.\nRules:\n- Only include rounds where a source states the amount explicitly.\n- Never guess. If a field is not in a source, use null.\n- If sources disagree on the amount, set \"check\": true.\n- Skip rounds older than 48 hours.\n- \"url\": copy the exact URL of the article from your web search results that reports this round. Use the article page, not a site homepage or category page. Only use null if no search result covers the round.\n- Fill \"what\", \"city\" and \"investors\" from the sources whenever they are mentioned.\nReturn ONLY a JSON array of at most 8 objects, no other text, no markdown:\n[{\"company\":\"\",\"country\":\"\",\"city\":\"\",\"amount\":\"€12M\",\"round\":\"\",\"investors\":[],\"what\":\"max 15 words\",\"sector\":\"\",\"date\":\"YYYY-MM-DD\",\"url\":\"\",\"check\":false}]"
+            }
+          ]
+        },
+        "simplify": false,
+        "options": {
+          "includeMergedResponse": true,
+          "webSearch": true,
+          "maxUses": 8,
+          "maxTokens": 4000
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "9a99e2cf-0122-4a03-b537-8c23551fa309",
+      "name": "Log: Error",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        656
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "G4Wn7HAOJb2bsagF",
+          "cachedResultName": "euro_rounds_runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $now.toISO() }}",
+            "status": "error",
+            "step": "={{ $prevNode.name }}",
+            "message": "={{ String($json.error?.message ?? $json.error ?? 'Unknown error') }}",
+            "trend": "",
+            "execution_id": "={{ $execution.id }}"
+          },
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "89f36ee6-967d-4da5-9e67-d4b72692ca3b",
+      "name": "Parse Research",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const NL = String.fromCharCode(10);\nconst FENCE = String.fromCharCode(96, 96, 96);\nconst raw = $input.first().json;\nconst blocks = Array.isArray(raw.content) ? raw.content : [];\n\n// Text Claude wrote (search calls and results are separate blocks).\nconst textBlocks = blocks.filter(b => b && b.type === 'text' && typeof b.text === 'string').map(b => b.text);\nconst fallbackText = [raw.merged_response, raw.text, raw.output].find(t => typeof t === 'string');\nif (!textBlocks.length && !fallbackText) throw new Error('No text in Claude response: ' + JSON.stringify(raw).slice(0, 300));\n\n// Real article links: web search results plus citations on text blocks.\nconst sources = [];\nfor (const b of blocks) {\n  if (b && b.type === 'web_search_tool_result' && Array.isArray(b.content)) {\n    for (const r of b.content) if (r && r.url) sources.push({ url: r.url, title: r.title || '' });\n  }\n  if (b && Array.isArray(b.citations)) {\n    for (const c of b.citations) if (c && c.url) sources.push({ url: c.url, title: c.title || '', text: c.cited_text || '' });\n  }\n}\n\nfunction parseArray(text) {\n  const s = String(text).split(FENCE + 'json').join('').split(FENCE).join('').trim();\n  const end = s.lastIndexOf(']');\n  for (let i = s.indexOf('['); i >= 0 && i < end; i = s.indexOf('[', i + 1)) {\n    try {\n      const v = JSON.parse(s.slice(i, end + 1));\n      if (Array.isArray(v)) return v;\n    } catch (e) {}\n  }\n  return null;\n}\n\n// Prefer the last text block (the final answer), then everything joined.\nconst candidates = [textBlocks[textBlocks.length - 1], textBlocks.join(NL), fallbackText].filter(Boolean);\nlet data = null;\nfor (const c of candidates) { data = parseArray(c); if (data) break; }\nif (!data) throw new Error('No JSON array found in Claude reply: ' + String(candidates[0]).slice(0, 300));\n\n// Article = a URL with a real path, not just a homepage. (No URL() in the n8n sandbox.)\nfunction isArticle(u) {\n  if (typeof u !== 'string' || !/^https?:\\/\\//i.test(u)) return false;\n  const path = u.replace(/^https?:\\/\\/[^\\/]+/i, '').split(/[?#]/)[0].replace(/\\/+$/, '');\n  return path.length > 8;\n}\nfunction findSource(company) {\n  const name = String(company).replace(/\\(.*?\\)/g, '').trim().toLowerCase();\n  if (!name) return null;\n  const slug = name.replace(/[^a-z0-9]+/g, '-');\n  const hit = sources.find(s => isArticle(s.url) && (\n    s.title.toLowerCase().includes(name) || s.url.toLowerCase().includes(slug) || String(s.text || '').toLowerCase().includes(name)));\n  return hit ? hit.url : null;\n}\n\nconst covered = new Set($('Get Covered Companies').all().map(i => String(i.json.company || '').toLowerCase().trim()).filter(Boolean));\nconst seen = new Set();\nconst rounds = [];\nfor (const r of data) {\n  if (!r || !r.company || !r.amount) continue;\n  if (['null', 'undefined', 'n/a', 'na', 'undisclosed', 'unknown', 'none'].includes(String(r.amount).trim().toLowerCase())) continue;\n  const key = String(r.company).toLowerCase().trim();\n  if (covered.has(key) || seen.has(key)) continue;\n  seen.add(key);\n  if (!r.url || !isArticle(r.url)) r.url = findSource(r.company);\n  r.company = String(r.company).trim();\n  r.amount = String(r.amount).trim();\n  r.round = r.round ? String(r.round) : '';\n  r.city = r.city ? String(r.city) : '';\n  r.country = r.country ? String(r.country) : '';\n  r.investors = Array.isArray(r.investors) ? r.investors : [];\n  r.check = r.check === true;\n  rounds.push(r);\n}\nreturn [{ json: { count: rounds.length, rounds: rounds, sources_found: sources.length, rounds_text: rounds.map((r, i) => i + ': ' + JSON.stringify(r)).join(NL) } }];\n"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "09981d87-4b66-467e-92d1-ac4de6d3801e",
+      "name": "Any New Rounds?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.count }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "e88664f9-a063-4fff-b967-8f7c63f8b4ee",
+      "name": "Claude: Pick",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        368
+      ],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "claude-haiku-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=You choose stories for a daily post series about European startup funding.\nRounds (index: data):\n{{ $json.rounds_text }}\nPick the 3 most interesting rounds. Prioritize larger amounts, AI/deep tech/fintech, and products that are easy to explain. Then write a trend note: 2–3 sentences on any pattern across all rounds, based only on the data.\nReturn ONLY JSON: {\"picks\":[{\"i\":0,\"why\":\"one short sentence\"}],\"trend\":\"\"}"
+            }
+          ]
+        },
+        "simplify": false,
+        "options": {
+          "includeMergedResponse": true,
+          "maxTokens": 4000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "8f8251f7-84ba-4138-9f18-6cd23203f60a",
+      "name": "Parse Picks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\nconst NL = String.fromCharCode(10);\nconst FENCE = String.fromCharCode(96, 96, 96);\nfunction extractText(j) {\n  if (Array.isArray(j.content)) {\n    return j.content.filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text; }).join(NL);\n  }\n  if (typeof j.merged_response === 'string') return j.merged_response;\n  if (typeof j.text === 'string') return j.text;\n  if (typeof j.output === 'string') return j.output;\n  throw new Error('No text blocks in Claude response: ' + JSON.stringify(j).slice(0, 300));\n}\nfunction parseJson(text, kind) {\n  const s = String(text).split(FENCE + 'json').join('').split(FENCE + 'JSON').join('').split(FENCE).join('').trim();\n  const open = kind === 'array' ? '[' : '{';\n  const close = kind === 'array' ? ']' : '}';\n  const start = s.indexOf(open);\n  const end = s.lastIndexOf(close);\n  if (start < 0 || end < start) throw new Error('No JSON ' + kind + ' found in Claude reply: ' + s.slice(0, 300));\n  try {\n    return JSON.parse(s.slice(start, end + 1));\n  } catch (e) {\n    throw new Error('Invalid JSON from Claude: ' + e.message + ' | ' + s.slice(0, 300));\n  }\n}\n\nconst rounds = $('Parse Research').first().json.rounds || [];\nlet out = {};\ntry { out = parseJson(extractText($input.first().json), 'object') || {}; } catch (e) { out = {}; }\nconst picks = Array.isArray(out.picks) ? out.picks : [];\nconst used = new Set();\nconst items = [];\nfor (const p of picks) {\n  const idx = Number(p.i);\n  if (!rounds[idx] || used.has(idx)) continue;\n  used.add(idx);\n  const r = rounds[idx];\n  items.push({ json: Object.assign({}, r, { why: p.why || '', trend: out.trend || '', round_json: JSON.stringify(r) }) });\n  if (items.length === 3) break;\n}\nif (!items.length) {\n  // Fallback: Pick step failed or returned nothing usable, take the first rounds so the run still produces posts.\n  rounds.slice(0, 3).forEach(function (r) {\n    items.push({ json: Object.assign({}, r, { why: '', trend: '', round_json: JSON.stringify(r) }) });\n  });\n}\nif (!items.length) throw new Error('Pick step returned no valid picks: ' + JSON.stringify(out).slice(0, 300));\nreturn items;\n"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b4aa0714-74b2-44d8-9e7b-f1526b1eedc0",
+      "name": "Log: Run OK",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "G4Wn7HAOJb2bsagF",
+          "cachedResultName": "euro_rounds_runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $now.toISO() }}",
+            "status": "ok",
+            "step": "",
+            "message": "={{ $('Parse Picks').all().length }} picks from {{ $('Parse Research').first().json.count }} new rounds",
+            "trend": "={{ $('Parse Picks').first().json.trend }}",
+            "cost_usd": "={{ (() => { const c = (u, i, o, cr) => !u ? 0 : ((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)) * i + (u.cache_read_input_tokens || 0) * cr + (u.output_tokens || 0) * o + ((u.server_tool_use || {}).web_search_requests || 0) * 0.01; const posts = $('Loop Over Picks').all().reduce((s, x) => s + (Number(x.json.cost_usd) || 0), 0); return Math.round((c($('Claude: Research').first().json.usage, 2e-6, 10e-6, 0.2e-6) + c($('Claude: Pick').first().json.usage, 0.1e-6, 0.5e-6, 0.01e-6) + posts) * 1e5) / 1e5; })() }}",
+            "execution_id": "={{ $execution.id }}"
+          },
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "bee0f64d-4ac0-491d-bd0c-6c02bf0e691c",
+      "name": "Claude: Write",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        192
+      ],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "claude-haiku-5-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "=You write short, punchy posts about European startup funding.\nInput data: {{ $json.round_json }}\nFirst, run one or two web searches to find the news article that reports this funding round (search for the company name together with \"raises\" or the amount). Use the search only to find that link and to compare the amount.\nWrite:\n1. headline: max 6 words, must include the amount and city or country. Example: \"€25M for Munich AI startup\"\n2. post: 60–90 words. Line 1 is a hook that stops the scroll without exaggerating. Then what the company does in plain language, who invested, and why it matters for European tech. No hype words like \"revolutionary\". Don't include the source link.\n3. post_x: a version for X of max 240 characters (hashtags are added separately). Same facts, no link.\n4. hashtags: 3–4 relevant ones.\n5. source_url: the exact URL, copied from your search results, of the article about this round. An article page, not a homepage or a list of many rounds if a dedicated article exists. null if none found.\n6. amount_mismatch: true if that article states a different amount than the input data, otherwise false.\nFor the post, use only facts from the input data. Do not add numbers or claims.\nIf a field is null, empty or missing (for example investors or round), leave that topic out completely. Never write that something \"wasn't disclosed\" or \"is unknown\".\nReturn ONLY JSON: {\"headline\":\"\",\"post\":\"\",\"post_x\":\"\",\"hashtags\":[],\"source_url\":null,\"amount_mismatch\":false}"
+            }
+          ]
+        },
+        "simplify": false,
+        "options": {
+          "includeMergedResponse": true,
+          "webSearch": true,
+          "maxUses": 2,
+          "maxTokens": 4000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "f3f14f10-88cb-470b-928d-bb0554b452fc",
+      "name": "Parse Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        128
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const FENCE = String.fromCharCode(96, 96, 96);\nconst r = $('Loop Over Picks').first().json;\nconst raw = $input.first().json;\nconst blocks = Array.isArray(raw.content) ? raw.content : [];\n\n// The JSON answer is in the last text block; search calls and thinking are separate blocks.\nconst textBlocks = blocks.filter(b => b && b.type === 'text' && typeof b.text === 'string').map(b => b.text);\nconst fallbackText = [raw.merged_response, raw.text, raw.output].find(t => typeof t === 'string');\nconst candidates = [textBlocks[textBlocks.length - 1], textBlocks.join(' '), fallbackText].filter(Boolean);\n\nfunction parseObject(text) {\n  const s = String(text).split(FENCE + 'json').join('').split(FENCE).join('').trim();\n  const end = s.lastIndexOf('}');\n  for (let i = s.indexOf('{'); i >= 0 && i < end; i = s.indexOf('{', i + 1)) {\n    try {\n      const v = JSON.parse(s.slice(i, end + 1));\n      if (v && typeof v === 'object' && !Array.isArray(v)) return v;\n    } catch (e) {}\n  }\n  return null;\n}\nlet o = null;\nfor (const c of candidates) { o = parseObject(c); if (o) break; }\nif (!o) throw new Error('Write step for ' + r.company + ': no JSON object in reply: ' + String(candidates[0] || '').slice(0, 300));\nif (!o.headline || !o.post) throw new Error('Write step for ' + r.company + ': missing headline or post');\n\n// Links Claude actually saw in this step's web search.\nconst sources = [];\nfor (const b of blocks) {\n  if (b && b.type === 'web_search_tool_result' && Array.isArray(b.content)) {\n    for (const s of b.content) if (s && s.url) sources.push({ url: s.url, title: s.title || '' });\n  }\n  if (b && Array.isArray(b.citations)) {\n    for (const c of b.citations) if (c && c.url) sources.push({ url: c.url, title: c.title || '' });\n  }\n}\n\n// Article = a URL with a real path, not just a homepage. (No URL() in the n8n sandbox.)\nfunction isArticle(u) {\n  if (typeof u !== 'string' || !/^https?:\\/\\//i.test(u)) return false;\n  const path = u.replace(/^https?:\\/\\/[^\\/]+/i, '').split(/[?#]/)[0].replace(/\\/+$/, '');\n  return path.length > 8;\n}\nconst norm = u => String(u || '').replace(/^https?:\\/\\/(www\\.)?/i, '').replace(/\\/+$/, '').toLowerCase();\nconst seenUrls = new Set(sources.map(s => norm(s.url)));\nconst name = String(r.company).replace(/\\(.*?\\)/g, '').trim().toLowerCase();\nconst slug = name.replace(/[^a-z0-9]+/g, '-');\n\n// 1) Claude's pick, only if it appeared in the search results. 2) A result that names the company. 3) Research URL.\nlet url = null;\nif (isArticle(o.source_url) && seenUrls.has(norm(o.source_url))) url = o.source_url;\nif (!url) {\n  const hit = sources.find(s => isArticle(s.url) && (s.title.toLowerCase().includes(name) || s.url.toLowerCase().includes(slug)));\n  if (hit) url = hit.url;\n}\nif (!url && isArticle(r.url)) url = r.url;\n\nconst rawTags = Array.isArray(o.hashtags) ? o.hashtags : String(o.hashtags || '').split(' ');\nconst tags = rawTags.map(t => String(t).trim()).filter(Boolean).map(t => (t.charAt(0) === '#' ? t : '#' + t));\n\n// Cost of this Write call at list price (Haiku 5.5: $0.10 / $0.50 per M tokens, web search $0.01 each).\nconst u = raw.usage || {};\nconst searches = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;\nconst cost = ((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)) * 0.10e-6\n  + (u.cache_read_input_tokens || 0) * 0.01e-6 + (u.output_tokens || 0) * 0.50e-6 + searches * 0.01;\n\nreturn [{ json: {\n  company: r.company,\n  city: r.city || '',\n  country: r.country || '',\n  amount: r.amount,\n  round: r.round || '',\n  url: url || '',\n  check: r.check === true || o.amount_mismatch === true,\n  headline: String(o.headline).trim(),\n  post: String(o.post).trim(),\n  post_x: String(o.post_x || '').trim().slice(0, 240),\n  hashtags: tags.join(' '),\n  cost_usd: Math.round(cost * 1e5) / 1e5\n} }];\n"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "3257a5d0-eb8a-4d7a-91b6-d84b2d9ffd52",
+      "name": "Save Post (pending)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2464,
+        272
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "xQhRVc72ds3GlAmM",
+          "cachedResultName": "euro_rounds_posts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company": "={{ $('Parse Post').first().json.company }}",
+            "city": "={{ $('Parse Post').first().json.city }}",
+            "country": "={{ $('Parse Post').first().json.country }}",
+            "amount": "={{ $('Parse Post').first().json.amount }}",
+            "round": "={{ $('Parse Post').first().json.round }}",
+            "headline": "={{ $('Parse Post').first().json.headline }}",
+            "post": "={{ $('Parse Post').first().json.post }}",
+            "post_x": "={{ $('Parse Post').first().json.post_x }}",
+            "hashtags": "={{ $('Parse Post').first().json.hashtags }}",
+            "source_url": "={{ $('Parse Post').first().json.url }}",
+            "check": "={{ $('Parse Post').first().json.check }}",
+            "status": "pending",
+            "created_at": "={{ $now.toISO() }}",
+            "cost_usd": "={{ $('Parse Post').first().json.cost_usd }}"
+          },
+          "schema": [
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "country",
+              "displayName": "country",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "round",
+              "displayName": "round",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "headline",
+              "displayName": "headline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "post",
+              "displayName": "post",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "post_x",
+              "displayName": "post_x",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "hashtags",
+              "displayName": "hashtags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_url",
+              "displayName": "source_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check",
+              "displayName": "check",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "4f4f5830-ffed-4e9d-8f6e-d5da64c91f6b",
+      "name": "Save Seen",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        80
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "L2amme1njTzVq6QZ",
+          "cachedResultName": "euro_rounds_seen"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company": "={{ $('Parse Post').first().json.company }}",
+            "amount": "={{ $('Parse Post').first().json.amount }}",
+            "round": "={{ $('Parse Post').first().json.round }}",
+            "url": "={{ $('Parse Post').first().json.url }}",
+            "date_added": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "round",
+              "displayName": "round",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_added",
+              "displayName": "date_added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "bf971929-fb28-4823-bf6b-5b0ff5e9ae5e",
+      "name": "Loop Over Picks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1568,
+        176
+      ],
+      "parameters": {
+        "batchSize": 1
+      }
+    },
+    {
+      "id": "9646a385-12ac-48b8-96ad-dc866b0f280e",
+      "name": "Log: Write Error",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        288
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "G4Wn7HAOJb2bsagF",
+          "cachedResultName": "euro_rounds_runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $now.toISO() }}",
+            "status": "error",
+            "step": "={{ $prevNode.name }}",
+            "message": "={{ ($('Loop Over Picks').first().json.company || '') + ': ' + String($json.error?.message ?? $json.error ?? 'Unknown error') }}",
+            "trend": "",
+            "execution_id": "={{ $execution.id }}"
+          },
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c9813ea5-315d-4b5c-9c74-3bd112a252dd",
+      "name": "Log: No New Rounds",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        560
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "G4Wn7HAOJb2bsagF",
+          "cachedResultName": "euro_rounds_runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $now.toISO() }}",
+            "status": "no_new_rounds",
+            "step": "",
+            "message": "No new rounds today",
+            "trend": "",
+            "cost_usd": "={{ (u => !u ? 0 : Math.round((((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)) * 2e-6 + (u.cache_read_input_tokens || 0) * 0.2e-6 + (u.output_tokens || 0) * 10e-6 + ((u.server_tool_use || {}).web_search_requests || 0) * 0.01) * 1e5) / 1e5)($('Claude: Research').first().json.usage) }}",
+            "execution_id": "={{ $execution.id }}"
+          },
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "eac3c344-c196-42d0-8adc-1fa92a40731d",
+      "name": "Manual Test Run",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        720
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "be20cb66-8c75-43dd-810f-45e5ed25cb8c",
+      "name": "Sticky Note 698f7e65",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        720
+      ],
+      "parameters": {
+        "content": "## Euro Rounds – Daily\nFinds European funding rounds (Claude + web search), picks the best 3, writes posts (+ X version) and saves them as **pending** in `euro_rounds_posts`. Each run writes a status row to `euro_rounds_runs` (ok / no_new_rounds / error + step). The web app reads both tables via the **Euro Rounds – API** workflow.",
+        "color": 4
+      }
+    },
+    {
+      "id": "a7d2703d-c6d5-4396-ab60-e5ed5545500b",
+      "name": "Note: Research",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        170,
+        420
+      ],
+      "parameters": {
+        "content": "## 1 · Remember + Research\nSkips companies covered in the last **30 days**.\n**Claude Sonnet 5.5 + web search** (max 8 searches) finds European rounds from the last 48 h.\nParser drops rounds without a stated amount. Retries 3× on API errors.",
+        "width": 680,
+        "height": 380,
+        "color": 5
+      }
+    },
+    {
+      "id": "52d0daf4-59f4-4585-a139-fdb6c3d1cb31",
+      "name": "Note: Pick",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        870,
+        150
+      ],
+      "parameters": {
+        "content": "## 2 · Pick top 3\n**Claude Haiku 5.5** (20× cheaper) ranks the rounds and writes the trend note.\nNo new rounds → logged as `no_new_rounds`, run ends cleanly.",
+        "width": 640,
+        "height": 520,
+        "color": 6
+      }
+    },
+    {
+      "id": "b3b03804-e35b-4284-b793-c61954cbf396",
+      "name": "Note: Write",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1530,
+        -110
+      ],
+      "parameters": {
+        "content": "## 3 · Write + verify (per pick)\n**Haiku 5.5** writes the post + X version, then 1–2 web searches find the source article and re-check the amount (mismatch → ⚠️ check).\nOnly links that appeared in the search results are kept. Saved as **pending** with its own `cost_usd`.",
+        "width": 1120,
+        "height": 540,
+        "color": 4
+      }
+    },
+    {
+      "id": "ca37a692-a431-4966-a0fa-3d725ab4c156",
+      "name": "Note: Errors",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1530,
+        560
+      ],
+      "parameters": {
+        "content": "## Nothing fails silently\nEvery Claude call and parser has an **error branch** → `euro_rounds_runs` (step + message).\nCrashes and timeouts → **Euro Rounds – Error Handler** workflow.\nThe review app shows the latest run status.",
+        "width": 560,
+        "height": 300,
+        "color": 3
+      }
+    }
+  ],
+  "connections": {
+    "Daily 08:00 Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Covered Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Covered Companies": {
+      "main": [
+        [
+          {
+            "node": "Claude: Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Research": {
+      "main": [
+        [
+          {
+            "node": "Parse Research",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Research": {
+      "main": [
+        [
+          {
+            "node": "Any New Rounds?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Rounds?": {
+      "main": [
+        [
+          {
+            "node": "Claude: Pick",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: No New Rounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Pick": {
+      "main": [
+        [
+          {
+            "node": "Parse Picks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Picks": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Picks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Write": {
+      "main": [
+        [
+          {
+            "node": "Parse Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Write Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Post": {
+      "main": [
+        [
+          {
+            "node": "Save Post (pending)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Write Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Post (pending)": {
+      "main": [
+        [
+          {
+            "node": "Save Seen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Write Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Seen": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Picks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Write Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Picks": {
+      "main": [
+        [
+          {
+            "node": "Log: Run OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Claude: Write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log: Write Error": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Picks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Run": {
+      "main": [
+        [
+          {
+            "node": "Get Covered Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {}
+}

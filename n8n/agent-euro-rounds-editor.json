@@ -1,0 +1,115 @@
+{
+  "_note": "n8n Agent config (Agents → Euro Rounds Editor), as built through the n8n MCP server. Model credential: n8n built-in AI credits (Gateway). Data table ids are from the original instance; re-select your own tables after importing.",
+  "name": "Euro Rounds Editor",
+  "description": "Editor-in-chief for Euro Rounds: answers questions about tracked European funding rounds, rewrites posts on request (with approval), and writes a weekly recap post every Friday.",
+  "model": "anthropic/claude-haiku-5-5",
+  "instructions": "You are the editor of Euro Rounds, a daily series of short social posts about European startup funding rounds.\n\nData you can read:\n- list_posts: every generated post (id, company, city, country, amount, round, headline, post, post_x, hashtags, source_url, check, status pending/approved/rejected, created_at, cost_usd).\n- list_runs: the latest pipeline runs (run_date, status ok/no_new_rounds/error, step, message, trend, cost_usd).\n\nWhat you do:\n1. Answer questions about the rounds and the pipeline (e.g. which fintech rounds this week, biggest round, how much the pipeline cost, did today's run fail and where). Always base answers on list_posts / list_runs, never on memory. Quote amounts exactly as stored.\n2. Rewrite a post when asked (shorter, different tone, for a specific platform). Keep every fact identical to the stored post: no new numbers, investors or claims, no hype words like \"revolutionary\". Then call update_post with ALL fields for that id: unchanged fields copied exactly from list_posts, changed fields rewritten. post_x must stay under 240 characters. The user approves the update before it is saved.\n3. Weekly recap (when asked, or in the Friday task): read list_posts for the last 7 days, then write one recap post: headline (max 7 words, include the total or the biggest round), post of 80-120 words listing the 3-5 most notable rounds with amount and country, ending with one sentence on the pattern you see, post_x under 240 characters, and 3-4 hashtags. Save it with save_recap. Use only facts from the posts.\n\nIf a field is missing, leave it out; never write that something \"wasn't disclosed\". Keep replies short.",
+  "config": {
+    "guardrails": {
+      "budget": { "enabled": true, "monthlyBudgetUsd": 5, "sessionCostCapUsd": 0.25, "alertThresholdPercent": 80 }
+    }
+  },
+  "personalisation": { "icon": "newspaper", "gradient": { "from": "#14213D", "to": "#F2BE3A", "angle": 135 } },
+  "tasks": [
+    {
+      "name": "Weekly recap",
+      "cronExpression": "0 16 * * 5",
+      "timezone": "Europe/Berlin",
+      "objective": "It is Friday afternoon. Write this week's Euro Rounds recap: call list_posts, keep posts from the last 7 days (ignore earlier 'Weekly recap' posts), then write one recap post following your weekly recap instructions and save it with save_recap. If there are no posts from the last 7 days, do not save anything."
+    }
+  ],
+  "tools": [
+    {
+      "type": "node",
+      "name": "list_posts",
+      "description": "List all Euro Rounds posts, newest first.",
+      "node": {
+        "nodeType": "n8n-nodes-base.dataTableTool",
+        "nodeTypeVersion": 1.1,
+        "nodeParameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": { "__rl": true, "mode": "list", "value": "xQhRVc72ds3GlAmM", "cachedResultName": "euro_rounds_posts" },
+          "returnAll": true,
+          "orderBy": true,
+          "orderByColumn": "createdAt",
+          "orderByDirection": "DESC"
+        }
+      }
+    },
+    {
+      "type": "node",
+      "name": "list_runs",
+      "description": "List the 14 most recent pipeline runs, newest first.",
+      "node": {
+        "nodeType": "n8n-nodes-base.dataTableTool",
+        "nodeTypeVersion": 1.1,
+        "nodeParameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": { "__rl": true, "mode": "list", "value": "G4Wn7HAOJb2bsagF", "cachedResultName": "euro_rounds_runs" },
+          "returnAll": false,
+          "limit": 14,
+          "orderBy": true,
+          "orderByColumn": "createdAt",
+          "orderByDirection": "DESC"
+        }
+      }
+    },
+    {
+      "type": "node",
+      "name": "update_post",
+      "description": "Save a rewritten post. Pass ALL fields for the post id; copy unchanged fields exactly from list_posts.",
+      "requireApproval": true,
+      "node": {
+        "nodeType": "n8n-nodes-base.dataTableTool",
+        "nodeTypeVersion": 1.1,
+        "nodeParameters": {
+          "resource": "row",
+          "operation": "update",
+          "dataTableId": { "__rl": true, "mode": "list", "value": "xQhRVc72ds3GlAmM", "cachedResultName": "euro_rounds_posts" },
+          "matchType": "allConditions",
+          "filters": { "conditions": [{ "keyName": "id", "condition": "eq", "keyValue": "={{ $fromAI('id', 'The id of the post to update', 'number') }}" }] },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "headline": "={{ $fromAI('headline', 'Headline, max 6 words, includes amount and city or country', 'string') }}",
+              "post": "={{ $fromAI('post', 'Full post text', 'string') }}",
+              "post_x": "={{ $fromAI('post_x', 'X version under 240 characters', 'string') }}",
+              "hashtags": "={{ $fromAI('hashtags', 'Space-separated hashtags like #AI #Fintech', 'string') }}"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "node",
+      "name": "save_recap",
+      "description": "Save a weekly recap post as pending so it appears in the Euro Rounds app for review.",
+      "node": {
+        "nodeType": "n8n-nodes-base.dataTableTool",
+        "nodeTypeVersion": 1.1,
+        "nodeParameters": {
+          "resource": "row",
+          "operation": "insert",
+          "dataTableId": { "__rl": true, "mode": "list", "value": "xQhRVc72ds3GlAmM", "cachedResultName": "euro_rounds_posts" },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "company": "Weekly recap",
+              "country": "Europe",
+              "amount": "={{ $fromAI('amount', 'Total or biggest amount mentioned, e.g. €320M', 'string') }}",
+              "headline": "={{ $fromAI('headline', 'Recap headline, max 7 words', 'string') }}",
+              "post": "={{ $fromAI('post', 'Recap post text, 80-120 words', 'string') }}",
+              "post_x": "={{ $fromAI('post_x', 'X version under 240 characters', 'string') }}",
+              "hashtags": "={{ $fromAI('hashtags', 'Space-separated hashtags', 'string') }}",
+              "status": "pending",
+              "check": false,
+              "created_at": "={{ $now.toISO() }}"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

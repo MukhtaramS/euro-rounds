@@ -1,0 +1,143 @@
+{
+  "name": "Euro Rounds – Error Handler",
+  "nodes": [
+    {
+      "id": "47df82c0-538a-4cb2-b373-fc3245b0f62b",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "05a40f79-6cc3-4473-9433-10473f640908",
+      "name": "Log Crash to Runs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "G4Wn7HAOJb2bsagF",
+          "cachedResultName": "euro_rounds_runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "run_date": "={{ $now.toISO() }}",
+            "status": "error",
+            "step": "={{ $json.execution?.lastNodeExecuted || $json.trigger?.error?.node?.name || \"unknown step\" }}",
+            "message": "={{ \"[\" + ($json.workflow?.name || \"workflow\") + \"] \" + ($json.execution?.error?.message || $json.trigger?.error?.message || \"Unknown error\") + ($json.execution?.url ? \" · \" + $json.execution.url : \"\") }}",
+            "trend": "",
+            "execution_id": "={{ String($json.execution?.id ?? '') }}"
+          },
+          "schema": [
+            {
+              "id": "run_date",
+              "displayName": "run_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "trend",
+              "displayName": "trend",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cost_usd",
+              "displayName": "cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b4606bd7-2813-46a6-adf7-245e3c21d3f5",
+      "name": "Sticky Note 199bb21d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        48,
+        0
+      ],
+      "parameters": {
+        "content": "## Euro Rounds – Error Handler\nSet as the **error workflow** of Daily and API. Catches crashes the in-flow error branches cannot see (timeouts, the 180 s execution limit, data table outages) and logs them to `euro_rounds_runs`, so the web app shows them. Nothing fails silently.",
+        "color": 3
+      }
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Log Crash to Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

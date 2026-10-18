@@ -10,10 +10,6 @@ Euro Rounds is an n8n automation with a small review app. Every morning at 08:00
   <img src="docs/dashboard-overview.gif" alt="Euro Rounds dashboard: run status, review metrics and a pending funding post" width="720" />
 </p>
 
-<p align="center">
-  <img src="docs/post-review.gif" alt="Euro Rounds post review: branded image card, platform copy, source, character count and approval controls" width="720" />
-</p>
-
 🎥 **Demo video:** _link coming soon_
 
 ## Repository
@@ -24,7 +20,7 @@ Euro Rounds is an n8n automation with a small review app. Every morning at 08:00
 | `app/`, `components/`, `lib/` | The Next.js review app (review queue, Classic / Photo / Bold cards, stats) |
 | `app/api/` | Server routes that call the n8n API (the key never reaches the browser) |
 | `demo/` | Demo script and `reset.sh` for recording takes |
-| `docs/` | Lightweight dashboard and post-review GIF previews used above |
+| `docs/` | Lightweight dashboard GIF preview used above |
 
 ## The problem
 
